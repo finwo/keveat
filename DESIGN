@@ -1,0 +1,8 @@
+Initial idea:
+  leveldb + sublevel
+  sublevels:
+    - meta - Hold info like version, other nodes having this, etc
+    - data - Raw data contained at the key
+  Upon startup, question peers for all local keys to ensure persistence & updates
+  Upon receiving new data, send to 3 random other peers
+  Each N hours (depends on future testing/decision), iterate over keys to ensure persistance (N copies in network) & fetch updates
