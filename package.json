@@ -2,9 +2,9 @@
   "name": "keveat",
   "version": "0.0.1",
   "description": "Distributed key-value store",
-  "main": "index.js",
+  "main": "src/common.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "preview && tape src/**/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -17,6 +17,15 @@
   },
   "homepage": "https://github.com/finwo/keveat#readme",
   "dependencies": {
-    "autolevel": "^2.0.0"
+    "abstract-leveldown": "^6.3.0",
+    "autolevel": "^2.0.0",
+    "levelup": "^4.4.0"
+  },
+  "funding": {
+    "url": "https://github.com/sponsors/finwo"
+  },
+  "devDependencies": {
+    "package-preview": "^3.0.0",
+    "tape": "^5.0.1"
   }
 }
