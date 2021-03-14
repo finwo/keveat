@@ -6,3 +6,78 @@ Initial idea:
   Upon startup, question peers for all local keys to ensure persistence & updates
   Upon receiving new data, send to 3 random other peers
   Each N hours (depends on future testing/decision), iterate over keys to ensure persistance (N copies in network) & fetch updates
+
+Local storage:
+
+  Have a flat local file with 2kiB "sectors"
+  Pointers increment in 2kiB steps, giving a 4-byte pointer a range of 8 TiB (minus 2kiB)
+  The size indicator for an entry is 4 bytes, making data blobs a maximum of 4 GiB (minus 1 byte)
+  At the start of the file, we start directly with an entry
+
+  Each entry has:
+    256 4-byte pointers (1 kiB), each containing the sector in the file of the entry that contains the next character in it's key
+    To follow a multi-byte keys, follow the pointers through the file
+    If a pointer is set to 0, it is to be assumed as non-existing or unused
+
+    The last 4 bytes of an entry (past the data blob) are a pointer to the start of the entry, allowing easy-access of the previous block
+    when only the last block is known
+
+    The 2nd kiB of the entry contains metadata about the entry.
+      4-byte pointer to the next entry (0 for the last entry)
+      4-byte size indicator of the data blob (0 for null, non-existing or empty)
+      2-byte key size indicator
+      0..1014 byte key of the current entry
+
+    The previous/next pointers in the entry help checking if an update fits in the allotted space
+    The previous/next pointer help with optimization, allowing a truncate of the database freeing disk-space
+
+  When writing, either of 3 strategies may be employed
+    Walk key path towards the key, update the data blob (and size) if the new data fits the block
+    Scan through entries using next pointers, search for empty blocks large enough to contain the indicated data size
+    Append the entry to the end of the file, force the key path to that location (and free old entry if it exists)
+
+  When freeing/deleting an entry, the reference to it by the parent key should be removed and it should be merge by neighbour entries
+    if those entries are free as well.
+
+  When optimizing the database, all keys should be walked using the next pointers. If an empty/free entry has been found,
+  continue following the next pointers until an entry has been found fitting inside the free entry. If no entries are found,
+  relocate the next entry to the location of the free entry (and update the key tree). If an entry was found, relocate the found
+  entry to the location of the free entry (and update the key tree)
+
+DHT idea:
+  ID/hash range is circular, as in 0x00 is one up from 0xFF
+  Multiple types of keys
+    Expiring -> max 1 day, data will expire (like dns records)
+    Content-based hash
+    Pubkey signed -> key = hash of pubkey, needs signature
+  Basic network joining:
+    Generate random ID (16 bits in this example, 256 bits in real life)
+      0x6db7 -> 0110110110110111
+    Join random node (bootstrap server?)
+    Ask the node who is responsible for ID ^ (1<<{0..15})
+      Store for future reference
+    Ask the node who is responsible for ID-1
+      Store as back reference, like 'previous' node
+    Notify previous node we've joined the network
+    Monitor next & previous nodes
+  Getting key
+    Contact first known node BELOW key
+    Ask for it's key
+  Writing random key
+    Contact first known node BELOW key
+    Send write request
+  Being written to
+    Write in local storage
+    Send direct write to previous node
+  Receiving direct write from next node
+    Just write and keep monitoring
+  Previous node goes down
+    Ask network who's responsible now
+    Notify that node of our presence
+  Next node goes down
+    We're responsible for it's keys now
+    Send direct write for all local data to our previoius node
+    Ask previous node who's responsible for key after new resposibility (& attempt connection)
+  Get notification of new next node
+    Send all local keys it's responsible for
+    Store in our node list
