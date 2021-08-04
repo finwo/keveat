@@ -1,83 +1,168 @@
 Initial idea:
-  leveldb + sublevel
-  sublevels:
-    - meta - Hold info like version, other nodes having this, etc
-    - data - Raw data contained at the key
-  Upon startup, question peers for all local keys to ensure persistence & updates
-  Upon receiving new data, send to 3 random other peers
-  Each N hours (depends on future testing/decision), iterate over keys to ensure persistance (N copies in network) & fetch updates
+  - Multi-layer key-value DHT
+    - Block allocation (malloc-ish)
+    - B-tree
+    - DHT for distribution
+  - Possible issues:
+    - delete from distributed
+    - iterate over hashed keys (re-key using storage adapter?)
+  - Even support existing databases by merging layers?
+    - mysql/postgres are good at indexed lookups
+    - storage+key layers can be replaced by leveldb instance
 
-Local storage:
+To achieve something like this, we need to define some separate layers (which
+also implies we can produce multiple separate packages, making "keveat" only a
+package to tie the components together & use the packages as stand-alone
+solutions)
 
-  Have a flat local file with 2kiB "sectors"
-  Pointers increment in 2kiB steps, giving a 4-byte pointer a range of 8 TiB (minus 2kiB)
-  The size indicator for an entry is 4 bytes, making data blobs a maximum of 4 GiB (minus 1 byte)
-  At the start of the file, we start directly with an entry
+Storage layer:
+  This layer is responsible for allocating N-byte blocks upon a storage medium.
+  Whether that's sections of a block-device/file or whether that's separate
+  files we should not care about, as long as it's interface is met.  The storage
+  layer is also responsible for descerning between a fixed-size medium and a
+  dynamic-size medium.
 
-  Each entry has:
-    256 4-byte pointers (1 kiB), each containing the sector in the file of the entry that contains the next character in it's key
-    To follow a multi-byte keys, follow the pointers through the file
-    If a pointer is set to 0, it is to be assumed as non-existing or unused
+  Core methods:
 
-    The last 4 bytes of an entry (past the data blob) are a pointer to the start of the entry, allowing easy-access of the previous block
-    when only the last block is known
+    .constructor( options )
 
-    The 2nd kiB of the entry contains metadata about the entry.
-      4-byte pointer to the next entry (0 for the last entry)
-      4-byte size indicator of the data blob (0 for null, non-existing or empty)
-      2-byte key size indicator
-      0..1014 byte key of the current entry
+      Initializes a storage medium for usage with this library.  Options could
+      include things like "file", "id_size", and others.
 
-    The previous/next pointers in the entry help checking if an update fits in the allotted space
-    The previous/next pointer help with optimization, allowing a truncate of the database freeing disk-space
+        Options:
 
-  When writing, either of 3 strategies may be employed
-    Walk key path towards the key, update the data blob (and size) if the new data fits the block
-    Scan through entries using next pointers, search for empty blocks large enough to contain the indicated data size
-    Append the entry to the end of the file, force the key path to that location (and free old entry if it exists)
+          file      Indicates the path of the file or block-device to use for
+                    storage.  This option may be different on different storage
+                    layer implementations
 
-  When freeing/deleting an entry, the reference to it by the parent key should be removed and it should be merge by neighbour entries
-    if those entries are free as well.
+          key_size  Sets the size of block identifiers to N bytes.  Downstream
+                    packages (users of this layer) MUST NOT perform calculations
+                    or assume any structure to these identifiers, allowing the
+                    storage layer to freely structure these as long as the
+                    interface provides them in the chosen size.
 
-  When optimizing the database, all keys should be walked using the next pointers. If an empty/free entry has been found,
-  continue following the next pointers until an entry has been found fitting inside the free entry. If no entries are found,
-  relocate the next entry to the location of the free entry (and update the key tree). If an entry was found, relocate the found
-  entry to the location of the free entry (and update the key tree)
+          init      How to handle opening the storage if the medium is (not)
+                    found.
 
-DHT idea:
-  ID/hash range is circular, as in 0x00 is one up from 0xFF
-  Multiple types of keys
-    Expiring -> max 1 day, data will expire (like dns records)
-    Content-based hash
-    Pubkey signed -> key = hash of pubkey, needs signature
-  Basic network joining:
-    Generate random ID (16 bits in this example, 256 bits in real life)
-      0x6db7 -> 0110110110110111
-    Join random node (bootstrap server?)
-    Ask the node who is responsible for ID ^ (1<<{0..15})
-      Store for future reference
-    Ask the node who is responsible for ID-1
-      Store as back reference, like 'previous' node
-    Notify previous node we've joined the network
-    Monitor next & previous nodes
-  Getting key
-    Contact first known node BELOW key
-    Ask for it's key
-  Writing random key
-    Contact first known node BELOW key
-    Send write request
-  Being written to
-    Write in local storage
-    Send direct write to previous node
-  Receiving direct write from next node
-    Just write and keep monitoring
-  Previous node goes down
-    Ask network who's responsible now
-    Notify that node of our presence
-  Next node goes down
-    We're responsible for it's keys now
-    Send direct write for all local data to our previoius node
-    Ask previous node who's responsible for key after new resposibility (& attempt connection)
-  Get notification of new next node
-    Send all local keys it's responsible for
-    Store in our node list
+                    O_CREAT  Create a new medium.  The storage layer itself is
+                             responsible for deciding whether the newly created
+                             medium should be fixed-size, dynamically-sized or
+                             something else.
+
+                    O_ERROR  Throw an error if no initialized medium is found
+                             using the given identifier.
+
+    .head()
+
+      Returns the block that is marked as HEAD block.  If no block is marked as
+      head yet (or if it has been freed), an 'undefined' MUST be returned.
+
+    .alloc( size )
+
+      Allocates a block of N bytes on the storage medium and returns a reference
+      to that block.
+
+    .free( identifier )
+
+      Frees a block referenced to by the identifier, essentially deleting it
+      from usage and allowing the space on the storage medium to be re-used. If
+      the storage layer is on top of a dynamic-sized storage medium like a file,
+      the storage layer is responsible for truncating it to free up the space to
+      the underlying storage system.
+
+    .get( identifier )
+
+      Retrieves a reference to the block with the given identifier, if it is
+      allocated on the storage medium.  If no block is found using the given
+      identifier, an 'undefined' MUST be returned.
+
+    .stat()
+
+      This method should return statistical information about the storage
+      medium, like the amount of used space, the amount of free space, etc. The
+      format for this response has not been defined yet.
+
+  Reference methods:
+
+    .read( position = 0, length = -1 )
+
+      Read N bytes (default = all) from the block and return that as a buffer.
+      If the start is beyond the end of the block, an out-of-range error should
+      be thrown.  If length is given, but the end of the block is reached, a
+      buffer smaller than the requested length is returned.
+
+    .write( position = 0, length = -1, offset = 0, buffer )
+
+      Writes up to N bytes to the block at the given position, starting at the
+      offset within the buffer.  Returns the number of bytes written.
+
+    .free()
+
+      Frees the block on the storage medium, essentially deleting it from usage
+      and allowing the space on the storage medium to be re-used.
+
+    .markHead()
+
+      Marks the referenced block as the HEAD block, allowing a direct fetch to
+      it for later runs.  Only 1 marked block is allowed for a storage instance,
+      providing an entry point for structured data stored by downstream layers.
+
+Key-layer
+
+  The key layer is responsible for mapping dynamic storage blocks into a
+  key-value structure, essentially providing the core of the database.  This
+  layer is also responsible for providing the B-tree structure or any other
+  structure making the lookups fast itself, as the storage layer does not
+  provide such functionality.
+
+  Core methods:
+
+    .constructor( options )
+
+      Initializes the key layer with the given options.
+
+      Options:
+
+        storage   An initialized storage layer, providing the above-described
+                  api.
+
+    .put( key, value )
+
+    .get( key )
+
+    .delete( key )
+
+    .createReadStream( options )
+
+    .batch( operations )
+
+Distribution layer
+
+  The distribution layer handles connections to other nodes in the network,
+  handles data distribution between nodes and adds another consistency layer to
+  prevent a read stream from returning inconsistent states.
+
+  Core methods:
+
+    .constructor( options )
+
+      Initializes the distribution layer with the given options.
+
+      Options:
+
+        level/kv   An initialized leveldb or key-layer instance, providing local
+                   key-value storage.
+
+        hash_keys  Boolean, indicating whether or not to hash the keys stored in
+                   the network.  Hashing the keys provides better distribution,
+                   but removes the ability to iterate over the stored keys.
+
+    .put( key, value )
+
+    .get( key )
+
+    .delete( key )
+
+    .createReadStream( options )
+
+    .batch( operations )

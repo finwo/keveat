@@ -2,30 +2,19 @@
   "name": "keveat",
   "version": "0.0.1",
   "description": "Distributed key-value store",
-  "main": "src/common.js",
+  "main": "index.js",
   "scripts": {
-    "test": "preview && tape src/**/*.test.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/finwo/keveat.git"
-  },
-  "author": "Robin Bron <robin@finwo.nl>",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/finwo/keveat/issues"
-  },
-  "homepage": "https://github.com/finwo/keveat#readme",
-  "dependencies": {
-    "abstract-leveldown": "^6.3.0",
-    "autolevel": "^2.0.0",
-    "levelup": "^4.4.0"
+    "url": "git+https://git.finwo.net/finwo/keveat.git"
   },
   "funding": {
     "url": "https://github.com/sponsors/finwo"
   },
-  "devDependencies": {
-    "package-preview": "^3.0.0",
-    "tape": "^5.0.1"
-  }
+  "author": "Robin Bron <robin@finwo.nl>",
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
