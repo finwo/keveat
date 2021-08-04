@@ -1,3 +1,5 @@
-# Keveat
+This is a monorepo for the keveat project.
 
-Hello World
+Read the documentation of the following projects:
+
+- [dht](dht/)
