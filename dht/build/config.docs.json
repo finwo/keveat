@@ -1,0 +1,6 @@
+{
+   "destination": "docs",
+   "_": [
+      "src/**/*.js"
+   ]
+}
