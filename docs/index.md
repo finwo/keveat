@@ -1,5 +1,5 @@
 This is a monorepo for the keveat project.
 
-Read the documentation of the following projects:
+Read the documentation of the following packages:
 
-- [dht](dht/)
+- [keveat-dht](dht/)

@@ -1,4 +1,65 @@
-Initial idea:
+Current idea:
+  Positioning:
+    - Wipe/discard data on boot -- maybe a persistent mode keeping the data for server purposes?
+    - Generate (or restore from config) node uuid (random-generated)
+    - Connect to bootstrap node (hint: simple-peer-bootstrap)
+    - Join with state "positioning"
+    - Repeat until no nodes closer to my id
+      - Query connected node for available nodes
+      - Connect to node closest to my id
+      - Discard old connection
+    - Connect to node on my other side (before or after closest node), these 2 nodes are neighbours
+    - Change state to "initializing", announce to neighbours
+  Initializing:
+    - Request neighbours to send all keys between them to self
+    - Store all received from neighbours (TODO: what if not enough storage available)
+    - Change state to "available", announce to neighbours (neighbours **may** break their connection)
+  Runtime:
+    Storage persistence:
+      - Occasionally (daily?) request neighbours for keys between neighbours
+      - Fetch keys that are new or have more height
+    Low on storage:
+      - Request lower neighbour to move to my lowest key + 1
+      - Delete my lowest key
+    Key request:
+      - Destination = between self's neighbours (a.k.a. destination = self)
+        - If key exists, respond with it's height and data
+        - If key doesn't exist, respond with 404-ish
+      - Destination = other
+        - Redirect request to connected node closest to key
+    Key placement:
+      - Destination = self:
+        - If key already exists, read it's height, increment, store new data
+        - If doesn't exist: create new entry with height = 0
+        - Broadcast new entry to neighbour if key between self and neighbour
+      - Destination = other:
+        - Delete key from local
+        - Redirect placement to connected node closest to key
+    Key deletion:
+      - Destination = self:
+        - If key already exists, read it's height, increment, mark deleted
+        - If doesn't exist: create new entry with height = 0
+        - Broadcast new entry to neighbour if key between self and neighbour
+      - Destination = other:
+        - Delete key from local
+        - Redirect deletion to connected node closest to key
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+legacy idea:
   - Multi-layer key-value DHT
     - Block allocation (malloc-ish)
     - B-tree
