@@ -11,7 +11,8 @@ BIN?=keveat
 CC:=gcc
 CPP:=g++
 
-SRC+=$(wildcard src/*.c)
+FIND=$(shell which gfind find | head -1)
+SRC+=$(shell $(FIND) src/ -type f -name '*.c')
 
 INCLUDES:=
 
@@ -111,7 +112,7 @@ default: $(BIN)
 	${CC} $< ${CFLAGS} -c -o $@
 
 $(BIN): $(OBJ)
-	${CC} ${OBJ} ${CFLAGS} ${LDFLAGS} -s -o $@
+	${CC} ${OBJ} ${CFLAGS} ${LDFLAGS} -o $@
 
 # .PHONY: watch
 # watch:
