@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 
 #include "common.h"
 #include "list_commands.h"
@@ -8,7 +10,7 @@ int climodule_cmd_list_commands(int argc, const char **argv) {
 
   // Detect name lenghts
   int name_longest = 0;
-  int len;
+  int len, toklen;
   struct climodule_command *cmd = climodule_commands;
   while(cmd) {
     len = strlen(cmd->cmd);
@@ -16,11 +18,29 @@ int climodule_cmd_list_commands(int argc, const char **argv) {
     cmd = cmd->next;
   }
 
+  // Get terminal width
+  struct winsize w;
+  ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
+
   // Print basic table
   printf("Available commands:\n\n");
   cmd = climodule_commands;
+  char *desc, *tok;
   while(cmd) {
-    printf("  %*s  %s\n", name_longest, cmd->cmd, cmd->desc);
+    len  = name_longest + 4;
+    desc = strdup(cmd->desc);
+    printf("  %*s ", name_longest, cmd->cmd);
+    tok = strtok(desc, " ");
+    do {
+      if (!tok) break;
+      toklen = strlen(tok);
+      if (len + 1 + toklen >= w.ws_col) {
+        printf("\n  %*s ", name_longest, "");
+        len = name_longest + 4;
+      }
+      printf(" %s", tok);
+      len += toklen + 1;
+    } while((tok = strtok(NULL, " ")));
     cmd = cmd->next;
   }
   printf("\n");
