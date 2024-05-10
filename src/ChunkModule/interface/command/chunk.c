@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "ChunkModule/domain/init.h"
+#include "cofyc/argparse.h"
 #include "finwo/fnet.h"
 #include "finwo/http-parser.h"
 #include "finwo/http-server.h"
@@ -24,8 +26,27 @@ void route_404(struct http_server_reqdata *reqdata) {
 }
 
 int chunkmodule_cmd_chunk(int argc, const char **argv) {
-  printf("Hello from the chunkserver agent\n");
-  chunkmodule_interface_http_setup();
+  int port            = 8080;
+  int blockdev        = 0;
+  const char *storage = NULL;
+
+  // Parse local options
+  struct argparse argparse;
+  struct argparse_option options[] = {
+    OPT_HELP(),
+    OPT_INTEGER('p', "port"    , &port    , "Port to listen on"                                               , NULL, 0, 0),
+    OPT_STRING('s' , "storage" , &storage , "Path for chunk storage file or block device"                     , NULL, 0, 0),
+    OPT_BOOLEAN('b', "blockdev", &blockdev, "Indicates the file is a block device, prevent dynamic allocation", NULL, 0, 0),
+    OPT_END(),
+  };
+  argparse_init(&argparse, options, NULL, 0);
+  argc = argparse_parse(&argparse, argc, argv);
+
+  // Limit port to uint16
+  if ((port <= 0) || (port > 65535)) {
+    fprintf(stderr, "Invalid port: %d\n", port);
+    return 1;
+  }
 
   struct http_server_events evs = {
     .serving  = onServing,
@@ -36,19 +57,17 @@ int chunkmodule_cmd_chunk(int argc, const char **argv) {
   struct http_server_opts opts = {
     .evs   = &evs,
     .addr  = "0.0.0.0",
-    .port  = 8080,
+    .port  = port,
     .udata = &opts,
   };
 
-  /* // Launch network management thread */
-  /* thd_thread thread; */
-  /* thd_thread_detach(&thread, fnet_thread, NULL); */
+  chunkmodule_domain_init(storage, blockdev);
+  chunkmodule_interface_http_setup();
 
   http_server_main(&opts);
   fnet_shutdown();
 
-  /* thd_thread_join(&thread); */
-
   printf("Server has shut down\n");
   return 0;
 }
+
