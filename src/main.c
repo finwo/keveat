@@ -5,7 +5,7 @@ extern "C" {
 #include <stdio.h>
 #include "cofyc/argparse.h"
 
-#include "AppModule/setup.h"
+#include "ChunkModule/setup.h"
 #include "CliModule/setup.h"
 #include "CliModule/execute_command.h"
 
@@ -18,7 +18,7 @@ static const char *const usages[] = {
 int main(int argc, const char **argv) {
 
   // Call module initializers here
-  appmodule_setup();
+  chunkmodule_setup();
   climodule_setup();
 
   // Parse global options

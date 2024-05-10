@@ -1,5 +1,5 @@
 #include "setup.h"
-#include "list_commands.h"
+#include "command/list_commands.h"
 #include "register_command.h"
 
 void climodule_setup() {

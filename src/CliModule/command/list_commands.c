@@ -3,7 +3,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "common.h"
+#include "../common.h"
 #include "list_commands.h"
 
 int climodule_cmd_list_commands(int argc, const char **argv) {
@@ -23,13 +23,13 @@ int climodule_cmd_list_commands(int argc, const char **argv) {
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
   // Print basic table
-  printf("Available commands:\n\n");
+  printf("Available commands:\n");
   cmd = climodule_commands;
   char *desc, *tok;
   while(cmd) {
     len  = name_longest + 4;
     desc = strdup(cmd->desc);
-    printf("  %*s ", name_longest, cmd->cmd);
+    printf("\n  %*s ", name_longest, cmd->cmd);
     tok = strtok(desc, " ");
     do {
       if (!tok) break;
