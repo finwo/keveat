@@ -10,7 +10,7 @@ extern "C" {
 #include "ChunkModule/setup.h"
 #include "CliModule/setup.h"
 #include "CliModule/execute_command.h"
-#include "LogModule/setup.h"
+#include "LogModule/main.h"
 
 static const char *const usages[] = {
   "keveat [global] command [local]",

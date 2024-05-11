@@ -17,7 +17,7 @@ Distributed key-value engine
     <version> - 1 byte
       1 bit  -> extended (tbd, not supported = error)
       7 bits -> version number
-    <transaction>
+    <increment>
       64-bit number, increases by 1 for every update
     <parent>
       64-bit offset, reference to previous transaction
@@ -39,7 +39,7 @@ Distributed key-value engine
 
     > GET /kv/:key
     < 200 OK
-    < ETag: <transaction number>
+    < ETag: <increment number>
     < Last-Modified: <stringified timestamp>
     < Content-Encoding: <something?>
     < ...data...
@@ -48,7 +48,7 @@ Distributed key-value engine
     > Content-Encoding: <something?>
     > ...data...
     < 204 No Content
-    < ETag: <transaction number>
+    < ETag: <increment number>
 
     > DELETE /kv/:key
     < 204 No Content

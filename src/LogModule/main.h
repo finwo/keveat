@@ -1,5 +1,5 @@
-#ifndef __LOGMODULE_SETUP_H__
-#define __LOGMODULE_SETUP_H__
+#ifndef __LOGMODULE_MAIN_H__
+#define __LOGMODULE_MAIN_H__
 
 #define LOG_FATAL 0
 #define LOG_ERROR 1
@@ -16,4 +16,4 @@ extern int log_verbosity;
 #define log_info(args...)  log_dynamic(LOG_INFO , args)
 #define log_debug(args...) log_dynamic(LOG_DEBUG, args)
 
-#endif // __LOGMODULE_SETUP_H__
+#endif // __LOGMODULE_MAIN_H__

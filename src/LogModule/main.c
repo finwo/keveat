@@ -1,3 +1,3 @@
-#include "setup.h"
+#include "main.h"
 
 int log_verbosity = LOG_FATAL;
