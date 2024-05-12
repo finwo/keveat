@@ -35,7 +35,7 @@ struct kvsm_transaction_t * kvsm_transaction_init() {
 }
 
 // Caution: does NOT load entries
-struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET offset) {
+struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_OFFSET offset) {
   struct kvsm_transaction_t *tx;
   uint8_t version = 0;
   uint16_t header_length = 0;
@@ -43,8 +43,8 @@ struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET of
   // No offset = no transaction
   if (!offset) return NULL;
 
-  seek_os(fd, offset, SEEK_SET);
-  read_os(fd, &version, sizeof(version));
+  seek_os(kvsm_state->fd, offset, SEEK_SET);
+  read_os(kvsm_state->fd, &version, sizeof(version));
   header_length += sizeof(version);
 
   // We only support version 0 for now
@@ -56,11 +56,11 @@ struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET of
   // Load up remainder of the transaction
   tx         = kvsm_transaction_init();
   tx->offset = offset;
-  read_os(fd, &(tx->increment), sizeof(uint64_t));
+  read_os(kvsm_state->fd, &(tx->increment), sizeof(uint64_t));
   tx->increment = be64toh(tx->increment);
-  read_os(fd, &(tx->parent), sizeof(uint64_t));
+  read_os(kvsm_state->fd, &(tx->parent), sizeof(uint64_t));
   tx->parent = be64toh(tx->parent);
-  read_os(fd, &(tx->timestamp), sizeof(uint64_t));
+  read_os(kvsm_state->fd, &(tx->timestamp), sizeof(uint64_t));
   tx->timestamp = be64toh(tx->timestamp);
 
   header_length     += 3 * sizeof(uint64_t);
@@ -200,7 +200,7 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
   }
 
   // Freshly load the transaction from storage
-  vtx = kvsm_transaction_load(kvsm_state->fd, tx->offset);
+  vtx = kvsm_transaction_load(tx->offset);
   while(vtx) {
     off = vtx->offset + vtx->header_length;
 
@@ -269,7 +269,7 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
 
     off = vtx->parent;
     kvsm_transaction_free(vtx);
-    vtx = kvsm_transaction_load(kvsm_state->fd, off);
+    vtx = kvsm_transaction_load(off);
   }
 
   // Bail without data

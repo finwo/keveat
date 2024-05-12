@@ -30,7 +30,7 @@ void                        kvsm_transaction_del(struct kvsm_transaction_t *, co
 void                        kvsm_transaction_free(struct kvsm_transaction_t *);
 
 // Caution: does NOT load entries
-struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD, PALLOC_OFFSET);
+struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_OFFSET);
 
 void kvsm_transaction_store(struct kvsm_transaction_t *);
 
