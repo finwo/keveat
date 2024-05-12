@@ -69,7 +69,7 @@ init_lp:
 
   /* log_info("Reading mock data: foo = bar..."); */
   /* tx = kvsm_transaction_init(); */
-  /* struct buf *received = kvsm_transaction_get(tx, &((struct buf){ .data = "foo", .len = 3 })); */
+  /* struct buf *received = kvsm_transaction_get(tx, &((struct buf){ .data = "xxx", .len = 3 })); */
   /* kvsm_transaction_free(tx); */
   /* log_info("OK\n"); */
 
