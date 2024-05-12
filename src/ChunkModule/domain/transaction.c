@@ -104,7 +104,7 @@ void kvsm_transaction_store(struct kvsm_transaction_t *tx) {
   tx->timestamp = htobe64(tx->timestamp);
 
   // Actually reserve space in storage
-  tx->offset = palloc(kvsm_state->fd, txlen);
+  if (!tx->offset) tx->offset = palloc(kvsm_state->fd, txlen);
 
   // Write the transaction header
   seek_os( kvsm_state->fd, tx->offset, SEEK_SET);
@@ -125,7 +125,9 @@ void kvsm_transaction_store(struct kvsm_transaction_t *tx) {
     write_os(kvsm_state->fd, &len64, sizeof(len64));
     write_os(kvsm_state->fd, tx->entry[i].value.data, tx->entry[i].value.len);
   }
-  write_os(kvsm_state->fd, &end_list, sizeof(end_list));
+  if (tx->entry_count) {
+    write_os(kvsm_state->fd, &end_list, sizeof(end_list));
+  }
 
   // Revert data
   tx->increment = be64toh(tx->increment);
@@ -133,8 +135,10 @@ void kvsm_transaction_store(struct kvsm_transaction_t *tx) {
   tx->timestamp = be64toh(tx->timestamp);
 
   // Update global state
-  kvsm_state->root_offset = tx->offset;
-  kvsm_state->root_txid   = tx->increment;
+  if (tx->increment >= kvsm_state->root_txid) {
+    kvsm_state->root_offset = tx->offset;
+    kvsm_state->root_txid   = tx->increment;
+  }
 }
 
 void kvsm_transaction_free(struct kvsm_transaction_t *tx) {
@@ -164,12 +168,14 @@ void kvsm_transaction_del(struct kvsm_transaction_t *tx, const struct buf *key) 
 
 void kvsm_transaction_set(struct kvsm_transaction_t *tx, const struct buf *key, const struct buf *value) {
   if (!tx->entry) { tx->entry = malloc(1); }; // TODO: make nice
+  printf("Set %.*s = %.*s\n", (int)(key->len), key->data, (int)(value->len), value->data);
 
   // Override if duplicate key in transaction
   int i;
   for( i = 0 ; i < tx->entry_count ; i++ ) {
     if (key->len != tx->entry[i].key.len) continue;
     if (memcmp(key->data, tx->entry[i].key.data, key->len)) continue;
+    printf("Already %.*s in tx, overwriting\n", (int)(key->len), key->data);
     // Here = found
     buf_clear(&(tx->entry[i].value));
     buf_append(&(tx->entry[i].value), value->data, value->len);
@@ -209,10 +215,12 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
 
     // Iterate over all values
     while(1) {
+      printf("Reading...");
 
       // Read current key length
       // 0 = end of list
       read_os(kvsm_state->fd, &len8, sizeof(len8));
+      printf("%d...", len8);
       if (len8 == 0) break;
       if (len8 & 128) {
         len16 = (len8 & 127) << 8;
@@ -221,6 +229,7 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
       } else {
         len16 = len8;
       }
+      printf("%d...\n", len16);
 
       // Not length-matching = skip
       if (len16 != key->len) {
@@ -278,4 +287,57 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
   free(current_key);
   free(current_value);
   return NULL;
+}
+
+// Copies records from persistent storage tx src into memory tx dst
+void kvsm_transaction_copy_records(struct kvsm_transaction_t *dst, struct kvsm_transaction_t *src) {
+  printf("cpy: %llx -> %llx\n", src->offset, dst->offset);
+  if (!src->offset) return;
+  if (!src->header_length) return;
+
+  uint8_t len8;
+  uint16_t len16;
+  uint64_t len64;
+
+  // Reserve buffers
+  struct buf *current_value = calloc(1, sizeof(struct buf));
+  struct buf *current_key  = calloc(1, sizeof(struct buf));
+
+  seek_os(kvsm_state->fd, src->offset + src->header_length, SEEK_SET);
+  while(1) {
+
+    // Read current key length
+    // 0 = end of list
+    read_os(kvsm_state->fd, &len8, sizeof(len8));
+    printf("Reading key length: %d\n", len8);
+    if (len8 == 0) break;
+    if (len8 & 128) {
+      len16 = (len8 & 127) << 8;
+      read_os(kvsm_state->fd, &len8, sizeof(len8));
+      len16 |= len8;
+    } else {
+      len16 = len8;
+    }
+
+    // Read key data
+    current_key->data = malloc(len16);
+    current_key->len  = len16;
+    read_os(kvsm_state->fd, current_key->data, len16);
+    printf("Copying %.*s\n", len16, current_key->data);
+
+    // Read value
+    read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
+    current_value->len  = be64toh(len64);
+    current_value->data = malloc(current_value->len);
+    read_os(kvsm_state->fd, current_value->data, current_value->len);
+
+    // Insert into new transaction
+    kvsm_transaction_set(dst, current_key, current_value);
+    buf_clear(current_key);
+    buf_clear(current_value);
+  }
+
+  // Done
+  free(current_key);
+  free(current_value);
 }

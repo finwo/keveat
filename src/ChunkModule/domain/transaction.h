@@ -27,6 +27,7 @@ struct kvsm_transaction_t * kvsm_transaction_init();
 struct buf *                kvsm_transaction_get(struct kvsm_transaction_t *, const struct buf *);
 void                        kvsm_transaction_set(struct kvsm_transaction_t *, const struct buf *, const struct buf *);
 void                        kvsm_transaction_del(struct kvsm_transaction_t *, const struct buf *);
+void                        kvsm_transaction_copy_records(struct kvsm_transaction_t *, struct kvsm_transaction_t *);
 void                        kvsm_transaction_free(struct kvsm_transaction_t *);
 
 // Caution: does NOT load entries

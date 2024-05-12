@@ -7,6 +7,7 @@
 #include "finwo/palloc.h"
 
 #include "init.h"
+#include "compact.h"
 
 struct kvsm_state_t *kvsm_state = NULL;
 
@@ -43,7 +44,7 @@ void chunkmodule_domain_init(const char *storage, int isBlockDev) {
   struct kvsm_transaction_t *tx = NULL;
   PALLOC_OFFSET off = palloc_next(kvsm_state->fd, 0);
   while(off) {
-    tx = kvsm_transaction_load(kvsm_state->fd, off);
+    tx = kvsm_transaction_load(off);
     if (!tx) goto init_lp;
     if (tx->increment > kvsm_state->root_txid) {
       kvsm_state->root_txid   = tx->increment;
@@ -59,6 +60,8 @@ init_lp:
   } else {
     log_info("Not found\n");
   }
+
+  kvsm_compact_increment(3);
 
   /* log_info("Writing mock data: foo = bar..."); */
   /* tx = kvsm_transaction_init(); */
