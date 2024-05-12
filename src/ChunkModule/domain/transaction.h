@@ -18,11 +18,13 @@ struct kvsm_transaction_t {
   PALLOC_OFFSET                    parent;
   uint64_t                         increment;
   uint64_t                         timestamp;
+  uint16_t                         header_length;
   unsigned int                     entry_count;
   struct kvsm_transaction_entry_t *entry;
 };
 
 struct kvsm_transaction_t * kvsm_transaction_init();
+struct buf *                kvsm_transaction_get(struct kvsm_transaction_t *, const struct buf *);
 void                        kvsm_transaction_set(struct kvsm_transaction_t *, const struct buf *, const struct buf *);
 void                        kvsm_transaction_del(struct kvsm_transaction_t *, const struct buf *);
 void                        kvsm_transaction_free(struct kvsm_transaction_t *);

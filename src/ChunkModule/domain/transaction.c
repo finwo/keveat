@@ -38,9 +38,14 @@ struct kvsm_transaction_t * kvsm_transaction_init() {
 struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET offset) {
   struct kvsm_transaction_t *tx;
   uint8_t version = 0;
+  uint16_t header_length = 0;
+
+  // No offset = no transaction
+  if (!offset) return NULL;
 
   seek_os(fd, offset, SEEK_SET);
   read_os(fd, &version, sizeof(version));
+  header_length += sizeof(version);
 
   // We only support version 0 for now
   if (version != 0) {
@@ -57,6 +62,9 @@ struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET of
   tx->parent = be64toh(tx->parent);
   read_os(fd, &(tx->timestamp), sizeof(uint64_t));
   tx->timestamp = be64toh(tx->timestamp);
+
+  header_length     += 3 * sizeof(uint64_t);
+  tx->header_length  = header_length;
 
   return tx;
 }
@@ -175,6 +183,91 @@ void kvsm_transaction_set(struct kvsm_transaction_t *tx, const struct buf *key, 
   buf_append(&(tx->entry[tx->entry_count].key  ), key->data, key->len);
   buf_append(&(tx->entry[tx->entry_count].value), value->data, value->len);
   tx->entry_count++;
+}
+
+struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct buf *key) {
+  struct kvsm_transaction_t *vtx;
+  PALLOC_OFFSET off;
+  struct buf *current_value = calloc(1, sizeof(struct buf));
+  struct buf *current_key  = calloc(1, sizeof(struct buf));
+  uint8_t len8;
+  uint16_t len16;
+  uint64_t len64;
+
+  // Lock transaction to an increment
+  if (!tx->increment) {
+    tx->increment = kvsm_state->root_txid;
+    tx->offset    = kvsm_state->root_offset;
+  }
+
+  // Freshly load the transaction from storage
+  vtx = kvsm_transaction_load(kvsm_state->fd, tx->offset);
+  while(vtx) {
+    off = vtx->offset + vtx->header_length;
+
+    // Iterate over all values
+    while(1) {
+      // Read current key length
+      // 0 = end of list
+      seek_os(kvsm_state->fd, off, SEEK_SET);
+      read_os(kvsm_state->fd, &len8, sizeof(len8));
+      if (len8 == 0) break;
+      if (len8 & 128) {
+        len16 = (len8 & 127) << 8;
+        read_os(kvsm_state->fd, &len8, sizeof(len8));
+        len16 |= len8;
+      } else {
+        len16 = len8;
+      }
+
+      // Not length-matching = skip
+      if (len16 != key->len) {
+        seek_os(kvsm_state->fd, len16, SEEK_CUR);       // Skip key data
+        read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
+        len64 = be64toh(len64);
+        seek_os(kvsm_state->fd, len16, SEEK_CUR);       // Skip value data
+        continue;
+      }
+
+      // Read key data
+      current_key->data = malloc(len16);
+      current_key->len  = len16;
+      read_os(kvsm_state->fd, current_key->data, len16);
+
+      // Skip if key not matching
+      if (memcmp(current_key->data, key->data, key->len)) {
+        read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
+        len64 = be64toh(len64);
+        seek_os(kvsm_state->fd, len16, SEEK_CUR);       // Skip value data
+        continue;
+      }
+
+      // Here = found
+      read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
+      current_value->len  = be64toh(len64);
+      current_value->data = malloc(current_value->len);
+      read_os(kvsm_state->fd, current_value->data, current_value->len);
+
+      // Perform cleanup
+      buf_clear(current_key);
+      free(current_key);
+      kvsm_transaction_free(vtx);
+
+      // Return found value
+      return current_value;
+    }
+
+    off = vtx->parent;
+    kvsm_transaction_free(vtx);
+    vtx = kvsm_transaction_load(kvsm_state->fd, off);
+  }
+
+  // Bail without data
+  buf_clear(current_key);
+  buf_clear(current_value);
+  free(current_key);
+  free(current_value);
+  return NULL;
 }
 
 /* void                        kvsm_transaction_set(struct kvsm_transaction_t *, struct buf *, struct buf *); */
