@@ -164,6 +164,19 @@ void kvsm_transaction_del(struct kvsm_transaction_t *tx, const struct buf *key) 
 
 void kvsm_transaction_set(struct kvsm_transaction_t *tx, const struct buf *key, const struct buf *value) {
   if (!tx->entry) { tx->entry = malloc(1); }; // TODO: make nice
+
+  // Override if duplicate key in transaction
+  int i;
+  for( i = 0 ; i < tx->entry_count ; i++ ) {
+    if (key->len != tx->entry[i].key.len) continue;
+    if (memcmp(key->data, tx->entry[i].key.data, key->len)) continue;
+    // Here = found
+    buf_clear(&(tx->entry[i].value));
+    buf_append(&(tx->entry[i].value), value->data, value->len);
+    return;
+  }
+
+  // New entry in the transaction
   tx->entry = realloc(tx->entry, sizeof(struct kvsm_transaction_entry_t)*(tx->entry_count + 1));
   memset(&(tx->entry[tx->entry_count]), 0, sizeof(struct kvsm_transaction_entry_t));
   buf_append(&(tx->entry[tx->entry_count].key  ), key->data, key->len);
