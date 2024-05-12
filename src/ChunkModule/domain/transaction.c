@@ -245,9 +245,17 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
         continue;
       }
 
-      // Here = found
+      // Here = found, read value length
       read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
       current_value->len  = be64toh(len64);
+      if (!current_value->len) {
+        buf_clear(current_key);
+        free(current_key);
+        kvsm_transaction_free(vtx);
+        return NULL;
+      }
+
+      // Read the actual data
       current_value->data = malloc(current_value->len);
       read_os(kvsm_state->fd, current_value->data, current_value->len);
 
@@ -272,8 +280,3 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
   free(current_value);
   return NULL;
 }
-
-/* void                        kvsm_transaction_set(struct kvsm_transaction_t *, struct buf *, struct buf *); */
-/* void                        kvsm_transaction_del(struct kvsm_transaction_t *, struct buf *); */
-
-
