@@ -205,11 +205,14 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
   while(vtx) {
     off = vtx->offset + vtx->header_length;
 
+    // Go to the transaction's entry list
+    seek_os(kvsm_state->fd, off, SEEK_SET);
+
     // Iterate over all values
     while(1) {
+
       // Read current key length
       // 0 = end of list
-      seek_os(kvsm_state->fd, off, SEEK_SET);
       read_os(kvsm_state->fd, &len8, sizeof(len8));
       if (len8 == 0) break;
       if (len8 & 128) {
