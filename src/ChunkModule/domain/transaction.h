@@ -32,6 +32,6 @@ void                        kvsm_transaction_free(struct kvsm_transaction_t *);
 // Caution: does NOT load entries
 struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD, PALLOC_OFFSET);
 
-void kvsm_transaction_store(struct kvsm_state_t *, struct kvsm_transaction_t *);
+void kvsm_transaction_store(struct kvsm_transaction_t *);
 
 #endif // __CHUNKMODULE_DOMAIN_TRANSACTION_H__

@@ -70,7 +70,7 @@ struct kvsm_transaction_t * kvsm_transaction_load(PALLOC_FD fd, PALLOC_OFFSET of
 }
 
 // Side-effect: updates kvsm_state
-void kvsm_transaction_store(struct kvsm_state_t *st, struct kvsm_transaction_t *tx) {
+void kvsm_transaction_store(struct kvsm_transaction_t *tx) {
   int i;
   uint8_t version  = 0;
   uint8_t end_list = 0;
@@ -83,7 +83,6 @@ void kvsm_transaction_store(struct kvsm_state_t *st, struct kvsm_transaction_t *
     tx->parent    = kvsm_state->root_offset;
     tx->timestamp = _now();
   }
-
 
   // "calculate" serialized transaction length
   uint64_t txlen = 0;
@@ -105,51 +104,38 @@ void kvsm_transaction_store(struct kvsm_state_t *st, struct kvsm_transaction_t *
   tx->timestamp = htobe64(tx->timestamp);
 
   // Actually reserve space in storage
-  tx->offset = palloc(st->fd, txlen);
+  tx->offset = palloc(kvsm_state->fd, txlen);
 
   // Write the transaction header
-  seek_os( st->fd, tx->offset, SEEK_SET);
-  write_os(st->fd, &version, sizeof(version));
-  write_os(st->fd, &(tx->increment), sizeof(tx->increment));
-  write_os(st->fd, &(tx->parent   ), sizeof(tx->parent   ));
-  write_os(st->fd, &(tx->timestamp), sizeof(tx->timestamp));
+  seek_os( kvsm_state->fd, tx->offset, SEEK_SET);
+  write_os(kvsm_state->fd, &version, sizeof(version));
+  write_os(kvsm_state->fd, &(tx->increment), sizeof(tx->increment));
+  write_os(kvsm_state->fd, &(tx->parent   ), sizeof(tx->parent   ));
+  write_os(kvsm_state->fd, &(tx->timestamp), sizeof(tx->timestamp));
   for( i = 0 ; i < tx->entry_count ; i++ ) {
     if (tx->entry[i].key.len > 127) {
       len16 = htobe16(32768 | tx->entry[i].key.len);
-      write_os(st->fd, &len16, sizeof(len16));
+      write_os(kvsm_state->fd, &len16, sizeof(len16));
     } else {
       len8 = tx->entry[i].key.len;
-      write_os(st->fd, &len8, sizeof(len8));
+      write_os(kvsm_state->fd, &len8, sizeof(len8));
     }
-    write_os(st->fd, tx->entry[i].key.data, tx->entry[i].key.len);
+    write_os(kvsm_state->fd, tx->entry[i].key.data, tx->entry[i].key.len);
     len64 = htobe64(tx->entry[i].value.len);
-    write_os(st->fd, &len64, sizeof(len64));
-    write_os(st->fd, tx->entry[i].value.data, tx->entry[i].value.len);
+    write_os(kvsm_state->fd, &len64, sizeof(len64));
+    write_os(kvsm_state->fd, tx->entry[i].value.data, tx->entry[i].value.len);
   }
-  write_os(st->fd, &end_list, sizeof(end_list));
+  write_os(kvsm_state->fd, &end_list, sizeof(end_list));
 
   // Revert data
   tx->increment = be64toh(tx->increment);
   tx->parent    = be64toh(tx->parent   );
   tx->timestamp = be64toh(tx->timestamp);
+
+  // Update global state
+  kvsm_state->root_offset = tx->offset;
+  kvsm_state->root_txid   = tx->increment;
 }
-
-  /* Simple entry layout */
-  /*   <version> - 1 byte */
-  /*     1 bit  -> extended (tbd, not supported = error) */
-  /*     7 bits -> version number */
-  /*   <increment> */
-  /*     64-bit number, increases by 1 for every update */
-  /*   <parent> */
-  /*     64-bit offset, reference to previous transaction */
-  /*   <timestamp> */
-  /*     64-bit unix timestamp in milliseconds */
-  /*   <record> */
-  /*     <null> = EOL */
-  /*     <length-prefix string>: key */
-  /*     <64-bit data length indicator> */
-  /*     n-bytes data */
-
 
 void kvsm_transaction_free(struct kvsm_transaction_t *tx) {
   unsigned int i;
@@ -228,7 +214,7 @@ struct buf * kvsm_transaction_get(struct kvsm_transaction_t *tx, const struct bu
         seek_os(kvsm_state->fd, len16, SEEK_CUR);       // Skip key data
         read_os(kvsm_state->fd, &len64, sizeof(len64)); // Read value length
         len64 = be64toh(len64);
-        seek_os(kvsm_state->fd, len16, SEEK_CUR);       // Skip value data
+        seek_os(kvsm_state->fd, len64, SEEK_CUR);       // Skip value data
         continue;
       }
 
