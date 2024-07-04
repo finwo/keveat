@@ -8,7 +8,7 @@
 #include "finwo/http-parser.h"
 #include "finwo/http-server.h"
 
-#include "ChunkModule/interface/http/setup.h"
+#include "ChunkModule/interface/http.h"
 
 #include "chunk.h"
 
