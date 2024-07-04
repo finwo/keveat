@@ -23,6 +23,7 @@ int climodule_cmd_list_commands(int argc, const char **argv) {
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
 
   // Print basic table
+  printf("\n");
   printf("Available commands:\n");
   cmd = climodule_commands;
   char *desc, *tok;
@@ -43,7 +44,7 @@ int climodule_cmd_list_commands(int argc, const char **argv) {
     } while((tok = strtok(NULL, " ")));
     cmd = cmd->next;
   }
-  printf("\n");
+  printf("\n\n");
 
   return 0;
 }

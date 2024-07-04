@@ -6,11 +6,11 @@ extern "C" {
 #include <string.h>
 
 #include "cofyc/argparse.h"
+#include "rxi/log.h"
 
 #include "ChunkModule/setup.h"
 #include "CliModule/setup.h"
 #include "CliModule/execute_command.h"
-#include "LogModule/main.h"
 
 static const char *const usages[] = {
   "keveat [global] command [local]",
@@ -29,7 +29,7 @@ int main(int argc, const char **argv) {
   struct argparse argparse;
   struct argparse_option options[] = {
     OPT_HELP(),
-    OPT_STRING('l', "log", &loglevel, "loglevel fatal,error,warn,info,debug (default: info)", NULL, 0, 0),
+    OPT_STRING('v', "verbosity", &loglevel, "log verbosity: fatal,error,warn,info,debug,trace (default: info)", NULL, 0, 0),
     OPT_END(),
   };
   argparse_init(&argparse, options, usages, ARGPARSE_STOP_AT_NON_OPTION);
@@ -39,12 +39,21 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  if (!strcmp(loglevel, "fatal")) log_verbosity = LOG_FATAL;
-  else if (!strcmp(loglevel, "error")) log_verbosity = LOG_ERROR;
-  else if (!strcmp(loglevel, "warn"))  log_verbosity = LOG_WARN;
-  else if (!strcmp(loglevel, "info"))  log_verbosity = LOG_INFO;
-  else if (!strcmp(loglevel, "debug")) log_verbosity = LOG_DEBUG;
-  else {
+  if (0) {
+    // Intentionally empty
+  } else if (!strcasecmp(loglevel, "trace")) {
+    log_set_level(LOG_TRACE);
+  } else if (!strcasecmp(loglevel, "debug")) {
+    log_set_level(LOG_DEBUG);
+  } else if (!strcasecmp(loglevel, "info")) {
+    log_set_level(LOG_INFO);
+  } else if (!strcasecmp(loglevel, "warn")) {
+    log_set_level(LOG_WARN);
+  } else if (!strcasecmp(loglevel, "error")) {
+    log_set_level(LOG_ERROR);
+  } else if (!strcasecmp(loglevel, "fatal")) {
+    log_set_level(LOG_FATAL);
+  } else {
     fprintf(stderr, "Unknown log level: %s\n", loglevel);
     return 1;
   }

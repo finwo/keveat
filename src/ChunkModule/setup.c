@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "CliModule/register_command.h"
 
 #include "setup.h"
@@ -9,7 +7,7 @@
 void chunkmodule_setup() {
   climodule_register_command(
     "chunk",
-    "Starts a chunk-server agent without redundancy",
+    "Starts a chunk-server agent",
     chunkmodule_cmd_chunk
   );
 }
