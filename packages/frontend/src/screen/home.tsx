@@ -42,7 +42,7 @@ export const HomeScreen = {
   view(vnode: _Vnode) {
     return (
       <div class="main">
-        Hello World
+        Hello World!
       </div>
     );
   },

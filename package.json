@@ -4,5 +4,11 @@
   "workspaces": [
     "packages/backend",
     "packages/frontend"
-  ]
+  ],
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "dev": "concurrently 'pnpm run -C packages/backend dev' 'pnpm run -C packages/frontend watch'"
+  }
 }
