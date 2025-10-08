@@ -91,7 +91,7 @@ esbuild
     <!-- <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192x192.png"> -->
     <!-- <link rel="icon" type="image/png" sizes="512x512" href="/assets/icon-512x512.png"> -->
     <!-- <link rel="manifest" href="/assets/manifest.json"/> -->
-    <link rel="stylesheet" href="/assets/fonts/karla/karla.css"/>
+    <link rel="stylesheet" href="assets/fonts/karla/karla.css"/>
     ${styles.map(name => `<link rel="preload" as="style" href="${name}" onload="this.onload=null;this.rel='stylesheet'"/>`).join('\n    ')}
   </head>
   <body>

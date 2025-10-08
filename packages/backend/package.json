@@ -7,7 +7,7 @@
     "watch": "nodemon -e ts -w src -x pnpm -- run build",
     "build": "tsc",
     "build:start": "pnpm run build && pnpm run start",
-    "dev": "nodemon -e ts -w src -x pnpm -- run build:start"
+    "dev": "nodemon -e ts -w src -x pnpm -- run build:start agent --cluster-key GPyeomBjzDRzsMxlHv3n4hhHSOmskQO1bOH_b4Qg1nozsDTN0ogHR76Iz3naTljYg8Xzwclpus0Km0IJI0VRgQ --ui"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
@@ -19,10 +19,12 @@
     "@finwo/di": "^1.2.5",
     "@finwo/router": "^0.5.3",
     "@finwo/router-fastify": "^0.5.3",
+    "commander": "^14.0.1",
     "dotenv": "^17.2.3",
     "envalid": "^8.1.0",
     "fastify": "^5.6.1",
     "level": "^10.0.0",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "supercop": "^3.0.2"
   }
 }

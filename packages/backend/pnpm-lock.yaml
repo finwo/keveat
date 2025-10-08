@@ -20,6 +20,9 @@ importers:
       '@finwo/router-fastify':
         specifier: ^0.5.3
         version: 0.5.3(@finwo/di@1.2.5(reflect-metadata@0.2.2))(fastify@5.6.1)(reflect-metadata@0.2.2)
+      commander:
+        specifier: ^14.0.1
+        version: 14.0.1
       dotenv:
         specifier: ^17.2.3
         version: 17.2.3
@@ -35,6 +38,9 @@ importers:
       reflect-metadata:
         specifier: ^0.2.2
         version: 0.2.2
+      supercop:
+        specifier: ^3.0.2
+        version: 3.0.2
     devDependencies:
       '@types/node':
         specifier: ^24.7.0
@@ -193,6 +199,10 @@ packages:
 
   color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+
+  commander@14.0.1:
+    resolution: {integrity: sha512-2JkV3gUZUVrbNA+1sjBOYLsMZ5cEEl8GTFP2a4AVz5hvasAMCQ1D2l2le/cX+pV4N6ZU17zjUahLpIXRrnWL8A==}
+    engines: {node: '>=20'}
 
   concat-map@0.0.1:
     resolution: {integrity: sha512-/Srv4dswyQNBfohGpz9o6Yb3Gz3SrUDqBH5rTuhGR7ahtlbYKnVxw2bCFMRljaA7EXHaXZ8wsHdodFvbkhKmqg==}
@@ -553,6 +563,9 @@ packages:
     resolution: {integrity: sha512-gmBGslpoQJtgnMAvOVqGZpEz9dyoKTCzy2nfz/n8aIFhN/jCE/rCmcxabB6jOOHV+0WNnylOxaxBQPSvcWklhA==}
     engines: {node: '>=12'}
 
+  supercop@3.0.2:
+    resolution: {integrity: sha512-9ytkUBLsSLSnpy6SVZOXIhsz3ChEUAHO1KkyzDhCwGyaJDmySs4gC/b+pMoTH1oqZ6c/44lDB3xYGQQoyXIYUg==}
+
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
     engines: {node: '>=4'}
@@ -777,6 +790,8 @@ snapshots:
       color-name: 1.1.4
 
   color-name@1.1.4: {}
+
+  commander@14.0.1: {}
 
   concat-map@0.0.1: {}
 
@@ -1108,6 +1123,8 @@ snapshots:
   strip-ansi@7.1.2:
     dependencies:
       ansi-regex: 6.2.2
+
+  supercop@3.0.2: {}
 
   supports-color@5.5.0:
     dependencies:
