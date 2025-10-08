@@ -1,0 +1,24 @@
+{
+  "name": "frontend",
+  "private": true,
+  "scripts": {
+    "build": "node build.js",
+    "watch": "nodemon -e ts,tsx,css -w src -x pnpm -- run build",
+    "start": "serve dist",
+    "dev": "concurrently 'npm run watch' 'npm start'"
+  },
+  "devDependencies": {
+    "@types/mithril": "^2.2.7",
+    "concurrently": "^9.2.1",
+    "cpy": "^12.0.1",
+    "dotenv": "^17.2.3",
+    "envalid": "^8.1.0",
+    "esbuild": "^0.25.10",
+    "esbuild-plugins-node-modules-polyfill": "^1.7.1",
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "mithril": "^2.3.7",
+    "serve": "^14.2.5"
+  }
+}

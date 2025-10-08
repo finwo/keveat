@@ -1,0 +1,50 @@
+:root {
+  --col-bg: black;
+  --col-fg: white;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --col-bg: white;
+    --col-fg: black;
+  }
+}
+
+:root {
+  background: var(--col-bg);
+  color: var(--col-fg);
+  font-family: Karla, sans-serif;
+  font-size: x-large;
+  font-optical-sizing: auto;
+  font-weight: 400;
+  font-style: normal;
+  line-height:1.414em;
+}
+
+* {
+  box-sizing: border-box;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+h1 { font-size: 2.828rem; }
+h2 { font-size: 2.000rem; }
+h3 { font-size: 1.414rem; }
+h4 { font-size: 1.000rem; }
+h5 { font-size: 0.841rem; }
+h6 { font-size: 0.707rem; }
+
+h1, h2, h3, h4, h5, h6, legend, label {
+  font-weight: 500;
+}
+
+small {
+  font-size: 0.75em;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--col-fg), transparent 30%);
+}

@@ -1,0 +1,8 @@
+{
+  "name": "keveat",
+  "version": "0.0.0",
+  "workspaces": [
+    "packages/backend",
+    "packages/frontend"
+  ]
+}
