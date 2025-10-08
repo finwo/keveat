@@ -15,7 +15,7 @@ export default function(program: Command) {
   program
     .command('agent')
     .description('Start the agent')
-    .requiredOption('--cluster-key <secret-key>', 'Set the secret key for the cluster')
+    .requiredOption('--cluster-key <keypair>', 'Set the keypair for the cluster')
     .option('--port <port>', 'Set the port to listen on', `${env.PORT}`)
     .option('--ui', 'Enable the webui', false)
     .action(async (opts: CommandOptions) => {
