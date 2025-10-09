@@ -1,10 +1,6 @@
 {
   "name": "keveat",
   "version": "0.0.0",
-  "workspaces": [
-    "packages/backend",
-    "packages/frontend"
-  ],
   "devDependencies": {
     "concurrently": "^9.2.1"
   },
