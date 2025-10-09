@@ -1,26 +1,14 @@
-// import {getFileHandle} from "../util/opfs";
-// import {requireAccount} from '../util/account-require';
-// import { AccountSelectScreen } from "./screen-account-select";
+import {HomeScreen} from "../screen/home";
 
-import {NavPartial} from "../partial/nav";
 
-// import {Icon} from "../component/icon";
-// import {MenuScreen} from "./menu";
-
-// import MenuIcon from 'lucide/dist/esm/icons/menu.js';
-// import {MenuScreen} from "./screen-menu";
-
-type _Vnode = Vnode<{}, typeof HomeScreen>;
+type _Vnode = Vnode<{}, typeof NavPartial>;
 
 // type Contact = {
 //   accountId: string;
 //   displayName: string;
 // };
 
-export const HomeScreen = {
-  routePath: '/',
-  // contacts: [] as Contact[],
-
+export const NavPartial = {
   async oninit(vnode: _Vnode) {
     // if (!await requireAccount(true)) return;
 
@@ -43,12 +31,12 @@ export const HomeScreen = {
 
   view(vnode: _Vnode) {
     return (
-      <div class="nav">
-        <NavPartial/>
-        <main>
-          Hello There
-        </main>
-      </div>
+      <nav>
+        <header>Keveat</header>
+        <ul>
+          <li><a href={`#!${HomeScreen.routePath}`}>Home</a></li>
+        </ul>
+      </nav>
     );
   },
 };

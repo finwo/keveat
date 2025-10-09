@@ -1,3 +1,5 @@
+/* ----[ config ]---- */
+
 :root {
   --col-bg: black;
   --col-fg: white;
@@ -32,6 +34,12 @@ body {
   padding: 0;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  &:first-child {
+    margin-top: 0;
+  }
+}
+
 h1 { font-size: 2.828rem; }
 h2 { font-size: 2.000rem; }
 h3 { font-size: 1.414rem; }
@@ -47,4 +55,94 @@ small {
   font-size: 0.75em;
   font-weight: 500;
   color: color-mix(in srgb, var(--col-fg), transparent 30%);
+}
+
+
+a {
+  text-decoration: underline;
+  color: inherit;
+}
+
+/* ----[ forms ]---- */
+
+input:focus,
+select:focus,
+textarea:focus,
+button:focus,
+.btn:focus {
+    outline: none;
+}
+
+.btn, button {
+  border: 2px solid var(--col-fg);
+  background: var(--col-fg);
+  color: var(--col-bg);
+  margin: 1em;
+  padding: 0.25em 0.5em;
+  cursor: pointer;
+  text-decoration: none;
+  &:active {
+    background: var(--col-bg);
+    color: var(--col-fg);
+  }
+}
+
+input {
+  display: block;
+  background: transparent;
+  padding: 0.5em 0px;
+  color: inherit;
+  border: none;
+  border-radius: 0;
+  border-bottom: 2px solid var(--col-fg);
+  width: 100%;
+}
+
+/* ----[ generic page styling ]---- */
+
+body > * {
+
+  &.nav {
+    min-height: 100vh;
+    nav {
+      float: left;
+      width: 8rem;
+      min-height: 100vh;
+      background: color-mix(in srgb, var(--col-fg), transparent 90%);
+      + * {
+        padding: 0.5rem;
+        float: left;
+        left: 8em;
+        width: calc(100vw - 10rem);
+      }
+    }
+  }
+}
+
+
+nav {
+  header {
+    display: block;
+    padding: 0.5rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--col-fg), transparent 30%);
+  }
+
+}
+nav > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  > li {
+    list-style: none;
+    padding: 0;
+    > a {
+      padding: 0.5rem;
+      display: block;
+      text-decoration: none;
+      &:hover {
+        background: var(--col-bg);
+        text-decoration: underline;
+      }
+    }
+  }
 }
