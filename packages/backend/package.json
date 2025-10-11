@@ -7,7 +7,9 @@
     "watch": "nodemon -e ts -w src -x pnpm -- run build",
     "build": "tsc",
     "build:start": "pnpm run build && pnpm run start",
-    "dev": "nodemon -e ts -w src -x pnpm -- run build:start agent --cluster-key 62c71b1999ddf75f3abbca58a6bd03388ab513f0ab03c77ed7ea9bce44082e40 --ui"
+    "dev": "nodemon -e ts -w src --exec 'pnpm run build && concurrently \"pnpm run dev:0\" \" pnpm run dev:1\"'",
+    "dev:0": "pnpm run start agent --cluster-key 62c71b1999ddf75f3abbca58a6bd03388ab513f0ab03c77ed7ea9bce44082e40 --ui --port 3000 --data-dir data-0 --peer http://127.0.0.0:3001",
+    "dev:1": "pnpm run start agent --cluster-key 62c71b1999ddf75f3abbca58a6bd03388ab513f0ab03c77ed7ea9bce44082e40 --ui --port 3001 --data-dir data-1 --peer http://127.0.0.1:3000"
   },
   "devDependencies": {
     "@types/mime-types": "^3.0.1",

@@ -1,3 +1,4 @@
+import {Level} from "level";
 import http, {IncomingMessage, ServerResponse} from 'node:http';
 import {Command} from "commander"
 import {env} from "../env";
@@ -6,7 +7,6 @@ import morgan from 'morgan';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
-import {db,meta} from '../db';
 
 import {Meta} from "../common/types";
 import {Stats} from 'node:fs';
@@ -17,6 +17,7 @@ type CommandOptions = {
   ui: boolean;
   port: string;
   peer: string[];
+  dataDir: string;
 };
 
 const buildList = (item: string, list: string[]) => [...(list ?? []), ...item.split(',')]
@@ -30,10 +31,15 @@ export default function(program: Command) {
     .command('agent')
     .description('Start the agent')
     .requiredOption('--cluster-key <keypair>', 'Set the keypair for the cluster')
+    .option('--data-dir <path>', 'Where to store data', 'data')
     .option('--port <port>', 'Set the port to listen on', `${env.PORT}`)
     .option('--ui', 'Enable the webui', false)
     .option('--peer <address>', 'Add a remote peer', buildList, [])
     .action(async (opts: CommandOptions) => {
+      const dataDir = path.resolve(opts.dataDir);
+      const root    = new Level(dataDir, { valueEncoding: 'utf8' });
+      const db      = root.sublevel<string, string>('data', {})
+      const meta    = root.sublevel<string, Meta>('meta', { valueEncoding: 'json' })
 
       const logger = morgan('tiny');
 
@@ -103,6 +109,7 @@ export default function(program: Command) {
             res.statusCode = 200;
             res.statusMessage = 'OK';
             res.setHeader('Content-Type', _meta.contentType || 'application/octet-stream');
+            res.setHeader('Connection', 'close');
             if (req.method === 'GET') res.write(await db.get(key) || '');
             return res.end();
           }
@@ -128,6 +135,8 @@ export default function(program: Command) {
 
           req.on('data', chunk => bodyChunks.push(Buffer.from(chunk)));
           req.on('end', async () => {
+
+            // Update local db
             const body = Buffer.concat(bodyChunks);
             _meta.version = newVersion;
             _meta.exists = true;
@@ -136,6 +145,28 @@ export default function(program: Command) {
             await db.put(key, body.toString());
             res.write(_meta.version.toString());
             res.end();
+
+            // Send updates to peers
+            for(const peer of opts.peer) {
+              const remoteResponse = await fetch(`${peer}${key}`, {
+                method: 'HEAD',
+              });
+              if (!remoteResponse.headers.has('x-version')) {
+                // Not a peer
+                continue;
+              }
+              let remoteVersion = parseInt(remoteResponse.headers.get('x-version') || '0');
+              if (remoteVersion < _meta.version) {
+                await fetch(`${peer}${key}`, {
+                  method: 'PUT',
+                  headers: {
+                    'X-Version': _meta.version.toString(),
+                  },
+                  body,
+                });
+              }
+            }
+
           });
           return;
         }
