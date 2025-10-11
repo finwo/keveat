@@ -5,11 +5,11 @@ import morgan from 'morgan';
 
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import { createReadStream, read } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import {db,meta} from '../db';
 
 import {Meta} from "../common/types";
-import {stat, Stats} from 'node:fs';
+import {Stats} from 'node:fs';
 import { lookup as getMime } from 'mime-types';
 
 type CommandOptions = {
@@ -47,15 +47,13 @@ export default function(program: Command) {
             // Handle OPTIONS
             if (req.method === 'OPTIONS') {
               res.setHeader('Allow', 'GET, OPTIONS');
-              res.end();
-              return;
+              return res.end();
             }
             // Only GET
             if (req.method !== 'GET') {
               res.statusCode = 405;
               res.write(res.statusMessage = 'Method Not Allowed');
-              res.end();
-              return;
+              return res.end();
             }
             // Basic static server
             let relative = (req.url||'/').slice(staticPrefix.length) || '/';
@@ -64,8 +62,7 @@ export default function(program: Command) {
             if (!target.startsWith(staticDir)) {
               res.statusCode = 404;
               res.write(res.statusMessage = 'Not Found');
-              res.end();
-              return;
+              return res.end();
             }
             let stat: (Stats&{exists:true}) | {exists:false};
             try {
@@ -76,8 +73,7 @@ export default function(program: Command) {
             if (!(stat.exists && stat.isFile())) {
               res.statusCode = 404;
               res.write(res.statusMessage = 'Not Found');
-              res.end();
-              return;
+              return res.end();
             }
             res.setHeader('Content-Type', getMime(target) || 'application/octet-stream')
             const readstream = createReadStream(target);
@@ -88,27 +84,18 @@ export default function(program: Command) {
         }
 
         if (req.method === 'OPTIONS') {
-          res.setHeader('Allow', 'OPTIONS, HEAD, GET, PUT, DELETE, NOTIFY');
-          res.end();
-          return;
+          res.setHeader('Allow', 'OPTIONS, HEAD, GET, PUT, DELETE');
+          return res.end();
         }
 
         const key = req.url;
         if (!key) {
           res.statusCode = 400;
           res.statusMessage = 'Bad Request';
-          res.end();
-          return;
+          return res.end();
         }
 
         const _meta = (await meta.get(key) || { version: 0, exists: false, contentType: null }) as Meta;
-
-        if (req.method === 'NOTIFY') {
-          // TODO:
-          //    if received > local, fetch updates from known peers
-          //    if received < local, notify of update
-          //    if received = local, do nothing
-        }
 
         if (req.method === 'GET' || req.method === 'HEAD') {
           res.setHeader('X-Version', _meta.version.toString());
@@ -117,23 +104,32 @@ export default function(program: Command) {
             res.statusMessage = 'OK';
             res.setHeader('Content-Type', _meta.contentType || 'application/octet-stream');
             if (req.method === 'GET') res.write(await db.get(key) || '');
-            res.end();
-            return;
+            return res.end();
           }
           res.statusCode = 404;
           res.statusMessage = 'Not Found';
           res.setHeader('Content-Type', 'text/plain');
           if (req.method === 'GET') res.write(res.statusMessage);
-          res.end();
-          return;
+          return res.end();
         }
 
         if (req.method === 'PUT') {
           const bodyChunks: Buffer[] = [];
+
+          let versionHeader = req.headers['x-version'] || [];
+          if (Array.isArray(versionHeader)) versionHeader = versionHeader.join('');
+          let givenVersion = parseInt(versionHeader);
+          const newVersion = givenVersion || (_meta.version+1);
+          if (newVersion <= _meta.version) {
+            res.statusCode = 409;
+            res.statusMessage = 'Conflict';
+            return res.end();
+          }
+
           req.on('data', chunk => bodyChunks.push(Buffer.from(chunk)));
           req.on('end', async () => {
             const body = Buffer.concat(bodyChunks);
-            _meta.version++;
+            _meta.version = newVersion;
             _meta.exists = true;
             _meta.contentType = req.headers['content-type'] || 'application/octet-stream';
             await meta.put(key, _meta);
@@ -150,12 +146,11 @@ export default function(program: Command) {
           await meta.put(key, _meta);
           await db.del(key);
           res.write(_meta.version.toString());
-          res.end();
-          return;
+          return res.end();
         }
 
         res.write(`Hello there: ${req.method}:${req.url}`);
-        res.end();
+        return res.end();
       });
 
       await new Promise<void>((resolve,reject) => {
