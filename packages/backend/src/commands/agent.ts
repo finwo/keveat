@@ -11,8 +11,10 @@ import { createReadStream } from 'node:fs';
 import {Meta} from "../common/types";
 import {Stats} from 'node:fs';
 import { lookup as getMime } from 'mime-types';
+import {createHash, createHmac} from "crypto";
 
 import qs from 'node:querystring';
+import globToRegex from "../common/util/glob-to-regex";
 
 type CommandOptions = {
   clusterKey: string;
@@ -22,11 +24,41 @@ type CommandOptions = {
   dataDir: string;
 };
 
+type AuthPolicyAction = 'deny' | 'read' | 'write';
+
+type AuthPolicy = {
+  action: AuthPolicyAction;
+  target: string; // example: "/acl/*", "/other/*/dinges"
+  targetRegex: RegExp;
+}
+
+type AuthInfo = {
+  identifier: string;
+  policies: AuthPolicy[];
+  roles: string[];
+};
+
 const buildList = (item: string, list: string[]) => [...(list ?? []), ...item.split(',')]
 
 const staticDir    = path.resolve(__dirname, '..', '..', '..', 'frontend', 'dist');
 const staticPrefix = '/ui';
 const staticIndex  = 'index.html';
+
+const authWindow = 60;
+
+function checkPolicies(policies: AuthPolicy[], key: string, action: AuthPolicyAction) {
+  if (action === 'deny') return false;
+  for(const policy of policies) {
+    const matches = policy.targetRegex.exec(key);
+    if (!matches) continue;
+    if (policy.action === 'deny') return false;
+    if (policy.action === 'write') return true;
+    if (policy.action === 'read' && action === 'read') return true;
+    if (policy.action === 'read' && action === 'write') return false;
+    return false;
+  }
+  return false;
+}
 
 export default function(program: Command) {
   program
@@ -49,7 +81,17 @@ export default function(program: Command) {
         await new Promise(done => logger(req, res, done));
         res.setHeader('Connection', 'close');
 
-        // const url = req.url||'/';
+        let   body: Buffer = Buffer.alloc(0);
+        const bodyChunks: Buffer[] = [];
+        let   bodyDone: (_:Buffer)=>void;
+        // @ts-ignore stfu
+        if (['PUT'].includes(req.method||'GET')) {
+          const bodyPromise = new Promise<Buffer>(done => bodyDone = done);
+          req.on('data', chunk => bodyChunks.push(Buffer.from(chunk)));
+          req.on('end', () => bodyDone(Buffer.concat(bodyChunks)));
+          body = await bodyPromise;
+        }
+
         const url = new URL(req.url||'/', `http://127.0.0.1:${opts.port}`);
         const query = Object
           .entries(qs.decode((url.search||'?').slice(1)))
@@ -116,16 +158,85 @@ export default function(program: Command) {
           return res.end();
         }
 
+        // Default token
+        const auth: AuthInfo = Object.assign({
+          identifier: 'anonymous',
+          policies: [
+            { target: '**', action: 'deny' },
+          ],
+          roles: [],
+        }, JSON.parse(await db.get('/acl/token/anonymous') || '{}'));
+
+        // Fetch token info
+        if (req.headers.authorization) {
+          let [authMethod, authArgument] = req.headers.authorization.split(' ');
+          authMethod = authMethod.toLowerCase();
+          switch(authMethod) {
+            case 'anonymous':
+              // Intentionally empty
+              break;
+            case 'basic':
+              const [identifier,tstamp,...signatureTokens] = Buffer.from(authArgument,'base64').toString().split(':');
+              const signature = signatureTokens.join(':');
+
+              // timestamp must be within window
+              const now = Math.floor(Date.now());
+              if (Math.abs((parseInt(tstamp)|0) - now) > authWindow) {
+                res.statusCode = 403;
+                res.write(res.statusMessage = 'Permission Denied');
+                return res.end();
+              }
+
+              const token = JSON.parse(await db.get(`/acl/token/${identifier}`) || '{}');
+
+              // Validate signature:
+              const authversion = req.headers['x-version'] || '';
+              const bodyhash = body.length ? createHash('sha256').update(body).digest('base64') : '';
+              const signdata = `${tstamp}:${req.method}${url.pathname}:${authversion}:${bodyhash}`;
+              const signatureReference = createHmac('sha256', token.secret||'').update(signdata).digest('base64');
+              if (signature !== signatureReference) {
+                res.statusCode = 403;
+                res.write(res.statusMessage = 'Permission Denied');
+                return res.end();
+              }
+
+              // Override anonymous token with validate one
+              Object.assign(auth, token);
+              break;
+          }
+        }
+
+        // Hydrate roles into auth.policies
+        for(const roleName of auth.roles) {
+          const role = JSON.parse(await db.get(`/acl/role/${roleName}`) || '{}');
+          for(const policy of (role.policies||[])) {
+            auth.policies.push(policy);
+          }
+        }
+
+        // Pre-compile policies into regexes
+        for(const policy of auth.policies) {
+          policy.targetRegex = globToRegex(policy.target, {
+            globstar: true,
+            extended: true,
+          });
+        }
+
         if (query.keys && (req.method === 'GET' || req.method === 'HEAD')) {
           res.setHeader('Content-Type', 'text/plain');
           if (req.method === 'HEAD') return res.end();
+
           for await (const [foundKey,_] of meta.iterator({
             gte: `${key}`,
             lte: `${key}\xFF\xFF\xFF\xFF`,
             keys: true,
             values: false
           })) {
-            res.write(`${foundKey}\n`);
+
+            if (checkPolicies(auth.policies, foundKey, 'read')) {
+              res.write(`${foundKey}\n`);
+            }
+
           }
           return res.end();
         }
@@ -133,6 +244,13 @@ export default function(program: Command) {
         const _meta = (await meta.get(key) || { version: 0, exists: false, contentType: null }) as Meta;
 
         if (req.method === 'GET' || req.method === 'HEAD') {
+
+          if (!checkPolicies(auth.policies, key, 'read')) {
+            res.statusCode = 403;
+            res.write(res.statusMessage = 'Permission Denied');
+            return res.end();
+          }
+
           res.setHeader('X-Version', _meta.version.toString());
           if (_meta.exists) {
             res.statusCode = 200;
@@ -149,7 +267,12 @@ export default function(program: Command) {
         }
 
         if (req.method === 'PUT') {
-          const bodyChunks: Buffer[] = [];
+
+          if (!checkPolicies(auth.policies, key, 'write')) {
+            res.statusCode = 403;
+            res.write(res.statusMessage = 'Permission Denied');
+            return res.end();
+          }
 
           let versionHeader = req.headers['x-version'] || [];
           if (Array.isArray(versionHeader)) versionHeader = versionHeader.join('');
@@ -161,45 +284,48 @@ export default function(program: Command) {
             return res.end();
           }
 
-          req.on('data', chunk => bodyChunks.push(Buffer.from(chunk)));
-          req.on('end', async () => {
+          // Update local db
+          _meta.version = newVersion;
+          _meta.exists = true;
+          _meta.contentType = req.headers['content-type'] || 'application/octet-stream';
+          await meta.put(key, _meta);
+          await db.put(key, body.toString());
+          res.write(_meta.version.toString());
+          res.end();
 
-            // Update local db
-            const body = Buffer.concat(bodyChunks);
-            _meta.version = newVersion;
-            _meta.exists = true;
-            _meta.contentType = req.headers['content-type'] || 'application/octet-stream';
-            await meta.put(key, _meta);
-            await db.put(key, body.toString());
-            res.write(_meta.version.toString());
-            res.end();
-
-            // Send updates to peers
-            for(const peer of opts.peer) {
-              const remoteResponse = await fetch(`${peer}${key}`, {
-                method: 'HEAD',
-              });
-              if (!remoteResponse.headers.has('x-version')) {
-                // Not a peer
-                continue;
-              }
-              let remoteVersion = parseInt(remoteResponse.headers.get('x-version') || '0');
-              if (remoteVersion < _meta.version) {
-                await fetch(`${peer}${key}`, {
-                  method: 'PUT',
-                  headers: {
-                    'X-Version': _meta.version.toString(),
-                  },
-                  body,
-                });
-              }
+          // Send updates to peers
+          for(const peer of opts.peer) {
+            const remoteResponse = await fetch(`${peer}${key}`, {
+              method: 'HEAD',
+            });
+            if (!remoteResponse.headers.has('x-version')) {
+              // Not a peer
+              continue;
             }
+            let remoteVersion = parseInt(remoteResponse.headers.get('x-version') || '0');
+            if (remoteVersion < _meta.version) {
+              await fetch(`${peer}${key}`, {
+                method: 'PUT',
+                headers: {
+                  'X-Version': _meta.version.toString(),
+                },
+                // @ts-ignore stfu
+                body,
+              });
+            }
+          }
 
-          });
           return;
         }
 
         if (req.method === 'DELETE') {
+
+          if (!checkPolicies(auth.policies, key, 'write')) {
+            res.statusCode = 403;
+            res.write(res.statusMessage = 'Permission Denied');
+            return res.end();
+          }
+
           _meta.version++;
           _meta.exists = false;
           await meta.put(key, _meta);
@@ -208,7 +334,8 @@ export default function(program: Command) {
           return res.end();
         }
 
-        res.write(`Hello there: ${req.method}:${req.url}`);
+        res.statusCode = 400;
+        res.write(res.statusMessage = 'Bad Request');
         return res.end();
       });
 
