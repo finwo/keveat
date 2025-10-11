@@ -12,6 +12,8 @@ import {Meta} from "../common/types";
 import {Stats} from 'node:fs';
 import { lookup as getMime } from 'mime-types';
 
+import qs from 'node:querystring';
+
 type CommandOptions = {
   clusterKey: string;
   ui: boolean;
@@ -45,11 +47,24 @@ export default function(program: Command) {
 
       const server = http.createServer(async (req: IncomingMessage, res: ServerResponse) => {
         await new Promise(done => logger(req, res, done));
+        res.setHeader('Connection', 'close');
 
-        const url = req.url||'/';
+        // const url = req.url||'/';
+        const url = new URL(req.url||'/', `http://127.0.0.1:${opts.port}`);
+        const query = Object
+          .entries(qs.decode((url.search||'?').slice(1)))
+          .map(([key, value]: [string,any]) => {
+            if (value === '') return [key,true];
+            return [key,value];
+          })
+          .reduce((r: Record<string, any>, [key,value]) => {
+            r[key] = value;
+            return r;
+          }, {})
+          ;
 
         if (opts.ui) {
-          if (url.startsWith(staticPrefix)) {
+          if (url.pathname.startsWith(staticPrefix)) {
             // Handle OPTIONS
             if (req.method === 'OPTIONS') {
               res.setHeader('Allow', 'GET, OPTIONS');
@@ -62,7 +77,7 @@ export default function(program: Command) {
               return res.end();
             }
             // Basic static server
-            let relative = (req.url||'/').slice(staticPrefix.length) || '/';
+            let relative = (url.pathname||'/').slice(staticPrefix.length) || '/';
             if (relative.slice(-1) === '/') relative += staticIndex;
             let target = path.join(staticDir, relative);
             if (!target.startsWith(staticDir)) {
@@ -94,10 +109,24 @@ export default function(program: Command) {
           return res.end();
         }
 
-        const key = req.url;
+        const key = url.pathname;
         if (!key) {
           res.statusCode = 400;
           res.statusMessage = 'Bad Request';
+          return res.end();
+        }
+
+        if (query.keys && (req.method === 'GET' || req.method === 'HEAD')) {
+          res.setHeader('Content-Type', 'text/plain');
+          if (req.method === 'HEAD') return res.end();
+          for await (const [foundKey,_] of meta.iterator({
+            gte: `${key}`,
+            lte: `${key}\xFF\xFF\xFF\xFF`,
+            keys: true,
+            values: false
+          })) {
+            res.write(`${foundKey}\n`);
+          }
           return res.end();
         }
 
@@ -109,7 +138,6 @@ export default function(program: Command) {
             res.statusCode = 200;
             res.statusMessage = 'OK';
             res.setHeader('Content-Type', _meta.contentType || 'application/octet-stream');
-            res.setHeader('Connection', 'close');
             if (req.method === 'GET') res.write(await db.get(key) || '');
             return res.end();
           }

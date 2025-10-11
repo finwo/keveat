@@ -30,26 +30,6 @@
 //     } : undefined);
 //   }
 
-//   // @ts-ignore Custom http method
-//   @Options('*')
-//   async optionsRoute(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-//     const params = req.params as { '*': string };
-//     const key    = '/' + params['*'].split('/').filter(Boolean).join('/');
-//     const sep    = key === '/' ? '' : '/';
-//     const foundKeys: string[] = [];
-//     for await (const [foundKey,_] of db.iterator({
-//       gte: `/kv${key}${sep}\x00\x00\x00\x00`,
-//       lte: `/kv${key}${sep}\xff\xff\xff\xff`,
-//       keys: true,
-//       values: false
-//     })) {
-//       foundKeys.push(foundKey.slice(3));
-//     }
-//     return {
-//       statusCode: 200,
-//       keys: foundKeys,
-//     };
-//   }
 
 
 //   @Delete('*')
