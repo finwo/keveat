@@ -1,4 +1,5 @@
 export type Meta = {
-  Version: number;
-  Exists: boolean;
+  version: number;
+  exists: boolean;
+  contentType: null|string;
 };

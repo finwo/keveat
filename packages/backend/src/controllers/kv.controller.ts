@@ -51,17 +51,6 @@
 //     };
 //   }
 
-//   @Put('*')
-//   async putRoute(@Req() req: FastifyRequest, @Res() res: FastifyReply) {
-//     const params = req.params as { '*': string };
-//     const key     = '/' + params['*'].split('/').filter(Boolean).join('/');
-//     const fullkey = '/kv' + key;
-//     const value   = req.body;
-//     await db.put(fullkey, value as string);
-//     return {
-//       statusCode: 200,
-//     };
-//   }
 
 //   @Delete('*')
 //   async deleteRoute(@Req() req: FastifyRequest, @Res() res: FastifyReply) {

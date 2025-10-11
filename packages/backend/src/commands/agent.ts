@@ -8,7 +8,6 @@ import fs from 'node:fs/promises';
 import { createReadStream, read } from 'node:fs';
 import {db,meta} from '../db';
 
-// import controllers from "../controllers";
 import {Meta} from "../common/types";
 import {stat, Stats} from 'node:fs';
 import { lookup as getMime } from 'mime-types';
@@ -88,16 +87,83 @@ export default function(program: Command) {
           }
         }
 
+        if (req.method === 'OPTIONS') {
+          res.setHeader('Allow', 'OPTIONS, GET, PUT, DELETE, NOTIFY');
+          res.end();
+          return;
+        }
+
+        const key = req.url;
+        if (!key) {
+          res.statusCode = 400;
+          res.statusMessage = 'Bad Request';
+          res.end();
+          return;
+        }
+
+        const _meta = (await meta.get(key) || { version: 0, exists: false, contentType: null }) as Meta;
+
+        if (req.method === 'NOTIFY') {
+          // TODO:
+          //    if received > local, fetch update
+          //    if received < local, notify of update
+          //    if received = local, do nothing
+        }
+
+        if (req.method === 'GET') {
+          const _data = await db.get(key) || '';
+          res.setHeader('X-Version', _meta.version.toString());
+          if (_meta.exists) {
+            res.statusCode = 200;
+            res.statusMessage = 'OK';
+            res.setHeader('Content-Type', _meta.contentType || 'application/octet-stream');
+            res.write(_data);
+            res.end();
+            return;
+          }
+          res.statusCode = 404;
+          res.statusMessage = 'Not Found';
+          res.setHeader('Content-Type', 'text/plain');
+          res.write(res.statusMessage);
+          res.end();
+          return;
+        }
+
+        if (req.method === 'PUT') {
+          const bodyChunks: Buffer[] = [];
+          req.on('data', chunk => bodyChunks.push(Buffer.from(chunk)));
+          req.on('end', async () => {
+            const body = Buffer.concat(bodyChunks);
+            _meta.version++;
+            _meta.exists = true;
+            _meta.contentType = req.headers['content-type'] || 'application/octet-stream';
+            await meta.put(key, _meta);
+            await db.put(key, body.toString());
+            res.write(_meta.version.toString());
+            res.end();
+          });
+          return;
+        }
+
+        if (req.method === 'DELETE') {
+          _meta.version++;
+          _meta.exists = false;
+          await meta.put(key, _meta);
+          await db.del(key);
+          res.write(_meta.version.toString());
+          res.end();
+          return;
+        }
 
         res.write(`Hello there: ${req.method}:${req.url}`);
         res.end();
       });
 
       await new Promise<void>((resolve,reject) => {
-        // @ts-ignore
-        server.listen(env.PORT, '0.0.0.0', (err: Error|null) => {
+        // @ts-ignore stfu
+        server.listen(opts.port, '0.0.0.0', (err: Error|null) => {
           if (err) return reject(err);
-          console.log(`keveat listening on :${env.PORT}`);
+          console.log(`keveat listening on :${opts.port}`);
           resolve();
         });
       });
