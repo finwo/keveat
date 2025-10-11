@@ -88,7 +88,7 @@ export default function(program: Command) {
         }
 
         if (req.method === 'OPTIONS') {
-          res.setHeader('Allow', 'OPTIONS, GET, PUT, DELETE, NOTIFY');
+          res.setHeader('Allow', 'OPTIONS, HEAD, GET, PUT, DELETE, NOTIFY');
           res.end();
           return;
         }
@@ -105,26 +105,25 @@ export default function(program: Command) {
 
         if (req.method === 'NOTIFY') {
           // TODO:
-          //    if received > local, fetch update
+          //    if received > local, fetch updates from known peers
           //    if received < local, notify of update
           //    if received = local, do nothing
         }
 
-        if (req.method === 'GET') {
-          const _data = await db.get(key) || '';
+        if (req.method === 'GET' || req.method === 'HEAD') {
           res.setHeader('X-Version', _meta.version.toString());
           if (_meta.exists) {
             res.statusCode = 200;
             res.statusMessage = 'OK';
             res.setHeader('Content-Type', _meta.contentType || 'application/octet-stream');
-            res.write(_data);
+            if (req.method === 'GET') res.write(await db.get(key) || '');
             res.end();
             return;
           }
           res.statusCode = 404;
           res.statusMessage = 'Not Found';
           res.setHeader('Content-Type', 'text/plain');
-          res.write(res.statusMessage);
+          if (req.method === 'GET') res.write(res.statusMessage);
           res.end();
           return;
         }
