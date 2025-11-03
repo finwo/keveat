@@ -56,7 +56,7 @@ export default function(program: Command) {
   program
     .command('agent')
     .description('Start the agent')
-    .requiredOption('--cluster-key <keypair>', 'Set the keypair for the cluster')
+    .requiredOption('--cluster-key <key>', 'Set the keypair for the cluster')
     .option('--data-dir <path>', 'Where to store data', 'data')
     .option('--port <port>', 'Set the port to listen on', `${env.PORT}`)
     .option('--ui', 'Enable the webui', false)
@@ -108,6 +108,11 @@ export default function(program: Command) {
             if (req.method !== 'GET') {
               res.statusCode = 405;
               res.write(res.statusMessage = 'Method Not Allowed');
+              return res.end();
+            }
+            if (url.pathname === staticPrefix && staticPrefix.slice(-1) !== '/') {
+              res.statusCode = 302;
+              res.setHeader('Location', staticPrefix+'/');
               return res.end();
             }
             // Basic static server
@@ -179,7 +184,18 @@ export default function(program: Command) {
                 return res.end();
               }
 
-              const token = JSON.parse(await db.get(`/acl/token/${identifier}`) || '{}');
+              let token;
+              if (identifier === '_') {
+                // cluster key
+                token = {
+                  secret: opts.clusterKey,
+                  policies: [
+                    { target: '**', action: 'write' },
+                  ],
+                };
+              } else {
+                token = JSON.parse(await db.get(`/acl/token/${identifier}`) || '{}');
+              }
 
               // Validate signature:
               const authversion = req.headers['x-version'] || '';
@@ -339,47 +355,6 @@ export default function(program: Command) {
           resolve();
         });
       });
-
-
-
-//       const app = fastify();
-//       app.addHttpMethod('MKCOL', { hasBody: true });
-//       app.register(routerPlugin, controllers);
-
-//       if (opts.ui) {
-//         app.get('/', (req: FastifyRequest, res: FastifyReply) => {
-//           res.redirect('/ui/', 301);
-//         });
-//         app.register(require('@fastify/static'), {
-//           root: path.join(__dirname, '..', '..', '..', 'frontend', 'dist'),
-//           prefix: '/ui/',
-//         });
-//       }
-
-
-
-//       await new Promise<void>(done => {
-//         app.listen({ port: parseInt(opts.port) }, (err: Error | null, addr: string) => {
-//           if (err) throw err;
-//           console.log(`Backend listening on ${addr}`);
-//           done();
-//         });
-//       });
-
-//       // Update meta whenever mutations happen
-//       db.hooks.prewrite.add(async function(op, batch) {
-//         const _key  = op.key;
-//         const _meta = (await meta.get(_key) || { Version: 0, Exists: false }) as Meta;
-//         _meta.Version++;
-//         if ('put' === op.type) {
-//           _meta.Exists = true;
-//         } else if ('del' === op.type) {
-//           _meta.Exists = false;
-//         } else {
-//           throw new Error(`Unsupported operation: ${op.type}`);
-//         }
-//         await meta.put(_key, _meta);
-//       });
 
     })
     ;
