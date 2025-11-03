@@ -8,7 +8,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { createReadStream } from 'node:fs';
 
-import {Meta} from "../common/types";
+import {AuthPolicy, AuthPolicyAction, Meta} from "../common";
 import {Stats} from 'node:fs';
 import { lookup as getMime } from 'mime-types';
 import {createHash, createHmac} from "crypto";
@@ -23,14 +23,6 @@ type CommandOptions = {
   peer: string[];
   dataDir: string;
 };
-
-type AuthPolicyAction = 'deny' | 'read' | 'write';
-
-type AuthPolicy = {
-  action: AuthPolicyAction;
-  target: string; // example: "/acl/*", "/other/*/dinges"
-  targetRegex: RegExp;
-}
 
 type AuthInfo = {
   identifier: string;
